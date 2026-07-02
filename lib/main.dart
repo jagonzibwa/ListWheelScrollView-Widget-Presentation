@@ -7,115 +7,223 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'ListWheelScrollView Demo',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const AlarmPickerPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/// Real-world use case: a "Set Alarm" screen, the same kind of time picker
+/// you see in native clock apps. Three [ListWheelScrollView]s let the user
+/// spin to a value instead of typing it, which is faster and less
+/// error-prone on a touch screen than a text field.
+class AlarmPickerPage extends StatefulWidget {
+  const AlarmPickerPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<AlarmPickerPage> createState() => _AlarmPickerPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _AlarmPickerPageState extends State<AlarmPickerPage> {
+  static const List<String> _periods = ['AM', 'PM'];
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  int _selectedHour = 6; // displayed as 7 (1-indexed)
+  int _selectedMinute = 30;
+  int _selectedPeriod = 0; // 0 = AM, 1 = PM
+
+  void _confirmAlarm() {
+    final hour = _selectedHour + 1;
+    final minute = _selectedMinute.toString().padLeft(2, '0');
+    final period = _periods[_selectedPeriod];
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Alarm set for $hour:$minute $period')),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Set Alarm'),
       ),
       body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            const Text(
+              'Spin the wheels to pick a time',
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 24),
+            _TimeWheelPicker(
+              selectedHour: _selectedHour,
+              selectedMinute: _selectedMinute,
+              selectedPeriod: _selectedPeriod,
+              onHourChanged: (value) => setState(() => _selectedHour = value),
+              onMinuteChanged: (value) =>
+                  setState(() => _selectedMinute = value),
+              onPeriodChanged: (value) =>
+                  setState(() => _selectedPeriod = value),
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _confirmAlarm,
+              icon: const Icon(Icons.alarm_add),
+              label: const Text('Save Alarm'),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+    );
+  }
+}
+
+/// The wheel picker itself: three synced [ListWheelScrollView]s (hour,
+/// minute, AM/PM) with a shared highlight bar showing which row is selected.
+class _TimeWheelPicker extends StatelessWidget {
+  const _TimeWheelPicker({
+    required this.selectedHour,
+    required this.selectedMinute,
+    required this.selectedPeriod,
+    required this.onHourChanged,
+    required this.onMinuteChanged,
+    required this.onPeriodChanged,
+  });
+
+  final int selectedHour;
+  final int selectedMinute;
+  final int selectedPeriod;
+  final ValueChanged<int> onHourChanged;
+  final ValueChanged<int> onMinuteChanged;
+  final ValueChanged<int> onPeriodChanged;
+
+  static const double _itemExtent = 44;
+  static const int _visibleItemCount = 5;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      height: _itemExtent * _visibleItemCount,
+      width: 280,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Highlight bar showing which row is currently selected.
+          Container(
+            height: _itemExtent,
+            decoration: BoxDecoration(
+              color: colorScheme.primaryContainer.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Expanded(
+                child: _Wheel(
+                  itemCount: 12,
+                  selectedItem: selectedHour,
+                  itemExtent: _itemExtent,
+                  labelBuilder: (i) => (i + 1).toString().padLeft(2, '0'),
+                  onChanged: onHourChanged,
+                ),
+              ),
+              const _WheelSeparator(text: ':'),
+              Expanded(
+                child: _Wheel(
+                  itemCount: 60,
+                  selectedItem: selectedMinute,
+                  itemExtent: _itemExtent,
+                  labelBuilder: (i) => i.toString().padLeft(2, '0'),
+                  onChanged: onMinuteChanged,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _Wheel(
+                  itemCount: 2,
+                  selectedItem: selectedPeriod,
+                  itemExtent: _itemExtent,
+                  labelBuilder: (i) => i == 0 ? 'AM' : 'PM',
+                  onChanged: onPeriodChanged,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WheelSeparator extends StatelessWidget {
+  const _WheelSeparator({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text, style: const TextStyle(fontSize: 24));
+  }
+}
+
+/// A single spinning column. This is the actual [ListWheelScrollView] usage:
+/// [itemExtent] gives every row a fixed height (required by the widget),
+/// [perspective] and [diameterRatio] curve the rows away from the viewer to
+/// produce the 3D "wheel" look, and [onSelectedItemChanged] fires whenever
+/// the centered item changes as the user flings or drags the wheel.
+class _Wheel extends StatelessWidget {
+  const _Wheel({
+    required this.itemCount,
+    required this.selectedItem,
+    required this.itemExtent,
+    required this.labelBuilder,
+    required this.onChanged,
+  });
+
+  final int itemCount;
+  final int selectedItem;
+  final double itemExtent;
+  final String Function(int index) labelBuilder;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListWheelScrollView.useDelegate(
+      itemExtent: itemExtent,
+      diameterRatio: 1.5,
+      perspective: 0.005,
+      physics: const FixedExtentScrollPhysics(),
+      controller: FixedExtentScrollController(initialItem: selectedItem),
+      onSelectedItemChanged: onChanged,
+      childDelegate: ListWheelChildBuilderDelegate(
+        childCount: itemCount,
+        builder: (context, index) {
+          final isSelected = index == selectedItem;
+          return Center(
+            child: Text(
+              labelBuilder(index),
+              style: TextStyle(
+                fontSize: isSelected ? 22 : 18,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
