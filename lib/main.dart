@@ -4,6 +4,7 @@ void main() {
   runApp(const MyApp());
 }
 
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -20,10 +21,8 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Real-world use case: a "Set Alarm" screen, the same kind of time picker
-/// you see in native clock apps. Three [ListWheelScrollView]s let the user
-/// spin to a value instead of typing it, which is faster and less
-/// error-prone on a touch screen than a text field.
+
+
 class AlarmPickerPage extends StatefulWidget {
   const AlarmPickerPage({super.key});
 
@@ -32,11 +31,14 @@ class AlarmPickerPage extends StatefulWidget {
 }
 
 class _AlarmPickerPageState extends State<AlarmPickerPage> {
+  // Labels for the AM/PM wheel, indexed the same way as _selectedPeriod.
   static const List<String> _periods = ['AM', 'PM'];
 
-  int _selectedHour = 6; // displayed as 7 (1-indexed)
-  int _selectedMinute = 30;
+
+  int _selectedHour = 6; // index 6 → displayed as "07" (hours are 1-indexed)
+  int _selectedMinute = 30; // index 30 → displayed as "30"
   int _selectedPeriod = 0; // 0 = AM, 1 = PM
+
 
   void _confirmAlarm() {
     final hour = _selectedHour + 1;
@@ -64,6 +66,7 @@ class _AlarmPickerPageState extends State<AlarmPickerPage> {
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
+
             _TimeWheelPicker(
               selectedHour: _selectedHour,
               selectedMinute: _selectedMinute,
@@ -87,8 +90,9 @@ class _AlarmPickerPageState extends State<AlarmPickerPage> {
   }
 }
 
-/// The wheel picker itself: three synced [ListWheelScrollView]s (hour,
+/// three synced ListWheelScrollViews (hour,
 /// minute, AM/PM) with a shared highlight bar showing which row is selected.
+
 class _TimeWheelPicker extends StatelessWidget {
   const _TimeWheelPicker({
     required this.selectedHour,
@@ -106,7 +110,11 @@ class _TimeWheelPicker extends StatelessWidget {
   final ValueChanged<int> onMinuteChanged;
   final ValueChanged<int> onPeriodChanged;
 
+  // Height of a single row in every wheel, in logical pixels. All three
+  // wheels must use the same itemExtent so their rows line up horizontally.
   static const double _itemExtent = 44;
+  // How many rows are visible in the wheel's viewport at once (must be odd
+  // so there's a single centered row). Used only to size the picker's box.
   static const int _visibleItemCount = 5;
 
   @override
@@ -114,9 +122,14 @@ class _TimeWheelPicker extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return SizedBox(
+      // Fixes the picker's overall height so the wheels have a bounded
+      // viewport to scroll within (ListWheelScrollView needs a finite
+      // height from its parent, it won't size itself to its content).
       height: _itemExtent * _visibleItemCount,
       width: 280,
       child: Stack(
+        // Stack layers the highlight bar behind the three wheel columns so
+        // it sits right at the center row of all of them simultaneously.
         alignment: Alignment.center,
         children: [
           // Highlight bar showing which row is currently selected.
@@ -127,9 +140,11 @@ class _TimeWheelPicker extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
             ),
           ),
+          // The three scrollable columns, laid out side by side.
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              // Hour wheel: 12 items (indexes 0-11), labeled "01".."12".
               Expanded(
                 child: _Wheel(
                   itemCount: 12,
@@ -140,6 +155,7 @@ class _TimeWheelPicker extends StatelessWidget {
                 ),
               ),
               const _WheelSeparator(text: ':'),
+              // Minute wheel: 60 items (indexes 0-59), labeled "00".."59".
               Expanded(
                 child: _Wheel(
                   itemCount: 60,
@@ -150,6 +166,7 @@ class _TimeWheelPicker extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
+              // AM/PM wheel: just 2 items.
               Expanded(
                 child: _Wheel(
                   itemCount: 2,
@@ -167,6 +184,8 @@ class _TimeWheelPicker extends StatelessWidget {
   }
 }
 
+/// The ":" divider drawn between the hour and minute wheels. Its own tiny
+/// widget purely to avoid repeating the same Text/style pair inline.
 class _WheelSeparator extends StatelessWidget {
   const _WheelSeparator({required this.text});
 
@@ -178,11 +197,6 @@ class _WheelSeparator extends StatelessWidget {
   }
 }
 
-/// A single spinning column. This is the actual [ListWheelScrollView] usage:
-/// [itemExtent] gives every row a fixed height (required by the widget),
-/// [perspective] and [diameterRatio] curve the rows away from the viewer to
-/// produce the 3D "wheel" look, and [onSelectedItemChanged] fires whenever
-/// the centered item changes as the user flings or drags the wheel.
 class _Wheel extends StatelessWidget {
   const _Wheel({
     required this.itemCount,
@@ -192,18 +206,30 @@ class _Wheel extends StatelessWidget {
     required this.onChanged,
   });
 
+  // How many rows this wheel has in total 
   final int itemCount;
+  // Index of the row that should start out centered/selected.
   final int selectedItem;
+  // Fixed pixel height of every row required by ListWheelScrollView so it
+  // can work out scroll offsets without measuring each child.
   final double itemExtent;
+  // Turns a row's index into the text it displays 
   final String Function(int index) labelBuilder;
+  // Called with the new index whenever the user scrolls to a different row.
   final ValueChanged<int> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return ListWheelScrollView.useDelegate(
+      // Every row is exactly this tall
       itemExtent: itemExtent,
+      // diameterRatio controls how "curved" the wheel looks 
       diameterRatio: 1.5,
+      // perspective adds the 3D vanishing-point effect so rows further from
+      // the center look like they're rotating away from the viewer, Valid range is 0 (flat) to 0.01.
       perspective: 0.005,
+      // FixedExtentScrollPhysics makes the wheel always settle with one
+      // item exactly centered
       physics: const FixedExtentScrollPhysics(),
       controller: FixedExtentScrollController(initialItem: selectedItem),
       onSelectedItemChanged: onChanged,
